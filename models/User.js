@@ -26,8 +26,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'admin',
     trim: true
-  }, // admin, etc.
-});
+  },
+  roleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Role',
+    default: null
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  }
+}, { timestamps: true });
 
 // Add indexes for frequently queried fields
 userSchema.index({ email: 1 });
