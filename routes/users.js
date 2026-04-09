@@ -1,49 +1,21 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { body, param, validationResult } = require('express-validator');
+const { body, param } = require('express-validator');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const requireAdmin = require('../middleware/requireAdmin');
+const { handleValidationErrors } = require('../middleware/validate');
 
 const router = express.Router();
 
-// Middleware to check if user is admin
-const isAdmin = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id).select('role');
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-    if (user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Access denied. Admin privileges required.' });
-    }
-    next();
-  } catch (err) {
-    console.error('Admin check error:', err.message);
-    return res.status(500).json({ success: false, message: 'Server error during authorization check' });
-  }
-};
-
-// Helper function to handle validation errors
-const handleValidationErrors = (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors.array()
-    });
-  }
-  return null;
-};
-
 // Helper function to hash password
 const hashPassword = async (password) => {
-  const salt = await bcrypt.genSalt(10);
+  const salt = await bcrypt.genSalt(12);
   return bcrypt.hash(password, salt);
 };
 
 // GET / - List all users (exclude password field, populate roleId with roleName)
-router.get('/', [auth, isAdmin], async (req, res) => {
+router.get('/', [auth, requireAdmin], async (req, res) => {
   try {
     const users = await User.find()
       .select('-password')
@@ -69,7 +41,7 @@ router.post(
   '/',
   [
     auth,
-    isAdmin,
+    requireAdmin,
     body('username')
       .trim()
       .notEmpty().withMessage('Username is required')
@@ -172,7 +144,7 @@ router.put(
   '/:id',
   [
     auth,
-    isAdmin,
+    requireAdmin,
     param('id').isMongoId().withMessage('Invalid user ID'),
     body('username')
       .optional()
@@ -289,7 +261,7 @@ router.delete(
   '/:id',
   [
     auth,
-    isAdmin,
+    requireAdmin,
     param('id').isMongoId().withMessage('Invalid user ID')
   ],
   async (req, res) => {

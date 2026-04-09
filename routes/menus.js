@@ -1,50 +1,15 @@
 const express = require('express');
-const { body, param, validationResult } = require('express-validator');
+const { body, param } = require('express-validator');
 const auth = require('../middleware/auth');
-const User = require('../models/User');
+const requireAdmin = require('../middleware/requireAdmin');
+const { handleValidationErrors } = require('../middleware/validate');
 const MenuGroup = require('../models/MenuGroup');
 const Menu = require('../models/Menu');
 
 const router = express.Router();
 
-// Admin check middleware
-const checkAdmin = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id).select('role');
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-    if (user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. Admin privileges required.'
-      });
-    }
-    next();
-  } catch (err) {
-    console.error('Admin check error:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Server error during authorization'
-    });
-  }
-};
-
-// Validation error handler
-const handleValidationErrors = (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors.array()
-    });
-  }
-  return null;
-};
+// Alias for backward compat in route arrays
+const checkAdmin = requireAdmin;
 
 // ==================== MENU GROUP ROUTES ====================
 

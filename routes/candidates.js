@@ -3,14 +3,19 @@ const { body, validationResult } = require('express-validator');
 const cloudinary = require('cloudinary').v2;
 const Candidate = require('../models/Candidate');
 const Counter = require('../models/Counter');
-const User = require('../models/User');
 const auth = require('../middleware/auth');
+const requireAdmin = require('../middleware/requireAdmin');
+const { sanitizeString, sanitizeObject } = require('../middleware/sanitize');
 const rateLimit = require('express-rate-limit');
 
+// Cloudinary config — credentials MUST come from environment variables
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+  console.warn('WARNING: Cloudinary environment variables not set. File uploads will fail.');
+}
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'du2ajmohg',
-  api_key: process.env.CLOUDINARY_API_KEY || '298172688881969',
-  api_secret: process.env.CLOUDINARY_API_SECRET || '-b7AhUe4OC3Z22_t7JIrBm7rtgo',
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 const router = express.Router();
@@ -35,7 +40,7 @@ const getNextSequence = async (name) => {
 
 const buildInterviewId = (seq) => {
   const roll = String(seq).padStart(4, '0');
-  const year = 2026; // Fixed format: KT-{Roll_Number}-2026
+  const year = new Date().getFullYear();
   return `KT-${roll}-${year}`;
 };
 
@@ -57,43 +62,6 @@ const buildPaymentInfo = (applicationType, paymentOption) => {
   };
 };
 
-const requireAdmin = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({ msg: 'Admin access required' });
-    }
-    req.user.role = user.role;
-    next();
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-};
-
-// Sanitization helper
-const sanitizeString = (str) => {
-  if (typeof str !== 'string') return str;
-  return str.trim().replace(/[<>]/g, ''); // Remove potential XSS characters
-};
-
-// Deep sanitize object
-const sanitizeObject = (obj) => {
-  if (typeof obj !== 'object' || obj === null) return obj;
-  if (Array.isArray(obj)) return obj.map(sanitizeObject);
-
-  const sanitized = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === 'string') {
-      sanitized[key] = sanitizeString(value);
-    } else if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitizeObject(value);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-  return sanitized;
-};
 
 // Calculate age from date of birth
 const calculateAge = (dob) => {
@@ -110,11 +78,11 @@ const calculateAge = (dob) => {
 // Get all candidates (admin only)
 router.get('/', auth, async (req, res) => {
   try {
-    const candidates = await Candidate.find().sort({ submittedAt: -1 });
+    const candidates = await Candidate.find().sort({ submittedAt: -1 }).lean();
     res.json(candidates);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -123,12 +91,12 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const candidate = await Candidate.findById(req.params.id);
     if (!candidate) {
-      return res.status(404).json({ msg: 'Candidate not found' });
+      return res.status(404).json({ success: false, message: 'Candidate not found' });
     }
-    res.json(candidate);
+    res.json({ success: true, data: candidate });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -476,12 +444,12 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const candidate = await Candidate.findByIdAndDelete(req.params.id);
     if (!candidate) {
-      return res.status(404).json({ msg: 'Candidate not found' });
+      return res.status(404).json({ success: false, message: 'Candidate not found' });
     }
-    res.json({ msg: 'Candidate removed' });
+    res.json({ success: true, message: 'Candidate removed' });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

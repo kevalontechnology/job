@@ -1,37 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { body, validationResult } = require('express-validator');
+const { body } = require('express-validator');
 const Role = require('../models/Role');
 const User = require('../models/User');
 const RolePermission = require('../models/RolePermission');
 const auth = require('../middleware/auth');
-
-// Middleware to check admin role
-const requireAdmin = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. Admin privileges required.',
-        data: null
-      });
-    }
-    next();
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'Error verifying admin privileges',
-      data: null
-    });
-  }
-};
-
-// Input sanitization helper
-const sanitizeInput = (value) => {
-  if (typeof value !== 'string') return value;
-  return value.trim().replace(/[<>]/g, '');
-};
+const requireAdmin = require('../middleware/requireAdmin');
+const { handleValidationErrors } = require('../middleware/validate');
+const { sanitizeString: sanitizeInput } = require('../middleware/sanitize');
 
 // Validation rules for role creation/update
 const roleValidationRules = [
@@ -46,19 +22,6 @@ const roleValidationRules = [
     .isBoolean()
     .withMessage('isActive must be a boolean value')
 ];
-
-// Validation error handler
-const handleValidationErrors = (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      data: errors.array()
-    });
-  }
-  return null;
-};
 
 // POST / - Create new role
 router.post('/', auth, requireAdmin, roleValidationRules, async (req, res) => {

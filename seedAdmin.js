@@ -6,7 +6,7 @@ require('dotenv').config();
 const createAdminUser = async () => {
   try {
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/interview-system');
+    await mongoose.connect(process.env.MONGO_URI);
 
     // Check if admin user already exists
     const existingUser = await User.findOne({ email: 'admin@kevalon.com' });

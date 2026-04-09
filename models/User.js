@@ -24,7 +24,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    default: 'admin',
+    enum: ['admin', 'user'],
+    default: 'user',
     trim: true
   },
   roleId: {
@@ -35,6 +36,14 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  resetCode: {
+    type: String,
+    default: null
+  },
+  resetCodeExpiry: {
+    type: Date,
+    default: null
   }
 }, { timestamps: true });
 

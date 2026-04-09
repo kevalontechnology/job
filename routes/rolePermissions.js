@@ -1,47 +1,18 @@
 const express = require('express');
-const { body, param, validationResult } = require('express-validator');
+const { body, param } = require('express-validator');
 const RolePermission = require('../models/RolePermission');
-const User = require('../models/User');
 const auth = require('../middleware/auth');
+const requireAdmin = require('../middleware/requireAdmin');
+const { handleValidationErrors } = require('../middleware/validate');
 
 const router = express.Router();
-
-// Middleware to check if user is admin
-const isAdmin = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id).select('role');
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-    if (user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Access denied. Admin privileges required.' });
-    }
-    next();
-  } catch (err) {
-    console.error('Admin check error:', err.message);
-    return res.status(500).json({ success: false, message: 'Server error during authorization check' });
-  }
-};
-
-// Helper function to handle validation errors
-const handleValidationErrors = (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors.array()
-    });
-  }
-  return null;
-};
 
 // POST / - Create or update permissions for a role (upsert by roleId)
 router.post(
   '/',
   [
     auth,
-    isAdmin,
+    requireAdmin,
     body('roleId').isMongoId().withMessage('Invalid role ID'),
     body('permissions').isArray().withMessage('Permissions must be an array'),
     body('permissions.*.menuId').optional().isMongoId().withMessage('Invalid menu ID'),
